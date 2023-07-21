@@ -30,6 +30,6 @@ app.post("/receipt/process", async (req, res) => {
     }
 });
 
-app.listen(4800, () => {
+app.listen(process.env.PORT, () => {
     console.log("Listen on the port 4800...");
 });
