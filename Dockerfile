@@ -1,8 +1,15 @@
-FROM node:16-alpine
+FROM node:18
 
-COPY package.json .
+WORKDIR /app
+
+COPY package*.json ./
 
 RUN npm install
 
+RUN npm ci --omit=dev
 
-CMD ["pm2-docker", "index.js" ]
+COPY . .
+
+EXPOSE 8080
+
+CMD ["node", "index.js" ]
