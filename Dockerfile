@@ -16,4 +16,4 @@ EXPOSE 8080
 
 COPY . .
 
-CMD ["cd", "app", "node", "index.js"]
+CMD ["node", "index.js"]
