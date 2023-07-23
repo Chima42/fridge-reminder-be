@@ -8,9 +8,10 @@ RUN npm install
 
 RUN npm ci --omit=dev
 
+ENV MINDEE_API_KEY=a745f5606b6358db3bb3d62a47037afb
+
 COPY . .
 
-ENV MINDEE_API_KEY=a745f5606b6358db3bb3d62a47037afb
 
 EXPOSE 8080
 
