@@ -27,20 +27,47 @@ const db = getFirestore(firebaseApp);
 // Init a new client
 const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
 
-cron.schedule('*/2 * * * *', () => {
-    console.log('running a task every minute');
+cron.schedule('*/5 * * * *', () => {
+    triggerReminders().then().catch(e => console.log(e));
 });
+
+const triggerReminders = async() => {
+    console.log("x reminder started");
+    console.log("fetching registered device tokens...");
+    const tokensQuery = await getDocs(collection(db, "tokens"));
+    const tokens = tokensQuery.docs.map(x => x.data());
+    console.log(`${tokens.length} found...`)
+    for (let i = 0; i < tokens.length; i++) {
+        console.log("fetching user specific meals...")
+        const q = query(collection(db, "foods"), where("uid", "==", tokens[i].uid));
+        const userSpecificMeals = (await getDocs(q)).docs.map(doc => doc.data());
+        console.log(`${userSpecificMeals.length} meals found for user`)
+        const today = new Date();
+        const inSevenDays = today.setDate(today.getDate() + 7);
+        const foodsExpiringThisWeek = userSpecificMeals.filter(doc => doc.date < inSevenDays);
+        console.log(`${foodsExpiringThisWeek.length} expiring this week...`)
+        const expo = new Expo();
+        if (foodsExpiringThisWeek.length > 0) {
+            console.log(`notification registered for this user`)
+            const chunks = expo.chunkPushNotifications([
+                { to: tokens[i].token, sound: "default", body: `${foodsExpiringThisWeek} foods expiring this week` }
+            ]);
+        }
+    }
+}
 
 app.get("/dev/test", async (req, res) => {
     try {
         const tokensQuery = await getDocs(collection(db, "tokens"));
         const tokens = tokensQuery.docs.map(x => x.data());
+        const meals = []
         for (let i = 0; i < tokens.length; i++) {
             const q = query(collection(db, "foods"), where("uid", "==", tokens[i].uid));
             const userSpecificMeals = (await getDocs(q)).docs.map(doc => doc.data());
             const today = new Date();
             const inSevenDays = today.setDate(today.getDate() + 7);
-            const foodsExpiringThisWeek = userSpecificMeals.filter(doc => doc.data().date < inSevenDays);
+            meals.push(...userSpecificMeals)
+            const foodsExpiringThisWeek = userSpecificMeals.filter(doc => doc.date < inSevenDays);
             const expo = new Expo();
             if (foodsExpiringThisWeek.length > 0) {
                 const chunks = expo.chunkPushNotifications([
@@ -49,7 +76,7 @@ app.get("/dev/test", async (req, res) => {
                 res.send(foodsExpiringThisWeek);
             }
         }
-        res.send(meals);
+        res.send("meals");
     } catch (e) {
         res.send(e)
     }
