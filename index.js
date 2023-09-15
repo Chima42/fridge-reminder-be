@@ -34,40 +34,18 @@ cron.schedule('*/5 * * * *', () => {
 const triggerReminders = async() => {
     console.log("x reminder started");
     console.log("fetching registered device tokens...");
-    const tokensQuery = await getDocs(collection(db, "tokens"));
-    const tokens = tokensQuery.docs.map(x => x.data());
-    console.log(`${tokens.length} found...`)
-    for (let i = 0; i < tokens.length; i++) {
-        console.log("fetching user specific meals...")
-        const q = query(collection(db, "foods"), where("uid", "==", tokens[i].uid));
-        const userSpecificMeals = (await getDocs(q)).docs.map(doc => doc.data());
-        console.log(`${userSpecificMeals.length} meals found for user`)
-        const today = new Date();
-        const inSevenDays = today.setDate(today.getDate() + 7);
-        const foodsExpiringThisWeek = userSpecificMeals.filter(doc => doc.date < inSevenDays);
-        console.log(`${foodsExpiringThisWeek.length} expiring this week...`)
-        const expo = new Expo();
-        if (foodsExpiringThisWeek.length > 0) {
-            console.log(`notification registered for this user`)
-            const chunks = expo.chunkPushNotifications([
-                { to: tokens[i].token, sound: "default", body: `${foodsExpiringThisWeek} foods expiring this week` }
-            ]);
-        }
-    }
-}
-
-app.get("/dev/test", async (req, res) => {
     try {
         const tokensQuery = await getDocs(collection(db, "tokens"));
         const tokens = tokensQuery.docs.map(x => x.data());
         const meals = []
+        const inSevenDays = new Date().setDate(new Date().getDate() + 7);
+        const today = new Date();
         for (let i = 0; i < tokens.length; i++) {
             const q = query(collection(db, "foods"), where("uid", "==", tokens[i].uid));
             const userSpecificMeals = (await getDocs(q)).docs.map(doc => doc.data());
-            const today = new Date();
-            const inSevenDays = today.setDate(today.getDate() + 7);
-            meals.push(...userSpecificMeals)
-            const foodsExpiringThisWeek = userSpecificMeals.filter(doc => doc.date < inSevenDays);
+            const foodsExpiringThisWeek = userSpecificMeals
+            .filter(doc => doc.date < inSevenDays && doc.date > today.getTime())
+            meals.push(...foodsExpiringThisWeek)
             const expo = new Expo();
             if (foodsExpiringThisWeek.length > 0) {
                 const chunks = expo.chunkPushNotifications([
@@ -76,49 +54,72 @@ app.get("/dev/test", async (req, res) => {
                 res.send(foodsExpiringThisWeek);
             }
         }
-        res.send("meals");
+        res.send({meals, inSevenDays});
     } catch (e) {
-        res.send(e)
+        console.log(e)
+        res.json(e)
     }
-    // const triggerNotifications = async () => {
-    //     // tokensQuery.forEach((doc) => {
-    //     // doc.data() is never undefined for query doc snapshots
-    //     // console.log(doc.id, " => ", doc.data());
-    //     // });
-    //     for (let i = 0; i < tokensQuery.docs.length; i++) {
-    //         const record = tokensQuery.docs[i].data();
-    //         const q = query(collection(db, "foods"), where("uid", "==", record.uid));
-    //         const querySnapshot = await getDocs(q);
-    //         const today = new Date();
-    //         const inSevenDays = today.setDate(today.getDate() + 7);
-    //         const foodsExpiringThisWeek = querySnapshot.docs.filter(doc => doc.data().date < inSevenDays);
-    //         if (foodsExpiringThisWeek.length > 0) {
-    //             res.send(foodsExpiringThisWeek);
-    //             // const expo = new Expo();
-    //             // const chunks = expo.chunkPushNotifications([
-    //             //     { to: record.token, sound: "default", body: `${foodsExpiringThisWeek} foods expiring this week` }
-    //             // ]);
-    //         }
-    //     }
-    // }
+}
+
+app.get("/dev/test", async (req, res) => {
+    try {
+        const tokensQuery = await getDocs(collection(db, "tokens"));
+        const tokens = tokensQuery.docs.map(x => x.data());
+        const meals = []
+        const inSevenDays = new Date().setDate(new Date().getDate() + 7);
+        const today = new Date();
+        for (let i = 0; i < tokens.length; i++) {
+            const q = query(collection(db, "foods"), where("uid", "==", tokens[i].uid));
+            const userSpecificMeals = (await getDocs(q)).docs.map(doc => doc.data());
+            const foodsExpiringThisWeek = userSpecificMeals
+            .filter(doc => doc.date < inSevenDays && doc.date > today.getTime())
+            meals.push(...foodsExpiringThisWeek) 
+            const expo = new Expo();
+            if (foodsExpiringThisWeek.length > 0) {
+                const chunks = expo.chunkPushNotifications([
+                    { to: record.token, sound: "default", body: `${foodsExpiringThisWeek} foods expiring this week` }
+                ]);
+                res.send(foodsExpiringThisWeek);
+            }
+        }
+        res.send({meals, inSevenDays});
+    } catch (e) {
+        console.log(e)
+        res.json(e)
+    }
 });
 
 app.post("/token/store", async (req, res) => {
-    const ref = collection(db, "tokens");
     try {
-      await addDoc(ref, {
-        token: req.body.token,
-        uid: req.body.uid
-      });
-      res.status(201).end();
-    } catch (e) {
+        const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
+        const x = await getDocs(q)
+        if (x.docs.some(doc => doc.exists())) {
+            res.send();
+        } else {
+            await addDoc(ref, {
+                token: req.body.token,
+                uid: req.body.uid
+            });
+            res.status(201).end();
+        }
+    } catch(e) {
         console.error("Error adding document: ", e);
-        res.status(500).send(e)
+        res.status(500).send(e);
     }
+
+    // try {
+    //   await addDoc(ref, {
+    //     token: req.body.token,
+    //     uid: req.body.uid
+    //   });
+    //   res.status(201).end();
+    // } catch (e) {
+    //     console.error("Error adding document: ", e);
+    //     res.status(500).send(e)
+    // }
 });
 
 app.post("/receipt/process", async (req, res) => {
-    triggerNotifications()
     console.log("process receipt request received")
     try {
         const apiResponse = await mindeeClient
