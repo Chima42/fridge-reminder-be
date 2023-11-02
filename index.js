@@ -73,7 +73,7 @@ const triggerReminders = async () => {
         messages.push({
           to: tokens[i].token,
           sound: "default",
-          body: `${meals[i].data.name} your foods expiring this week`,
+          body: `${meals.length} foods expiring this week`,
           uid: meals[i].data.uid,
           name: meals[i].data.name,
           foodId:meals[i].id
