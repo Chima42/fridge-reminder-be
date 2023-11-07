@@ -33,11 +33,12 @@ const db = getFirestore(firebaseApp);
 // Init a new client
 const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
 
-cron.schedule("*/5 * * * *", () => {
+cron.schedule("*/5 * * * * ", () => {
   triggerReminders()
     .then()
     .catch((e) => console.log(e));
 });
+
 
 const triggerReminders = async () => {
   console.log("x reminder started");
@@ -45,11 +46,15 @@ const triggerReminders = async () => {
   try {
     const tokensQuery = await getDocs(collection(db, "tokens"));
     const tokens = tokensQuery.docs.map((x) => x.data());
-    const meals = [];
+    let meals = [];
     const inSevenDays = new Date().setDate(new Date().getDate() + 7);
     const today = new Date();
+    let messages = [];
+    const expo = new Expo();
 
+    messages = []
     for (let i = 0; i < tokens.length; i++) {
+      meals = []
       const q = query(
         collection(db, "foods"),
         where("uid", "==", tokens[i].uid)
@@ -59,72 +64,98 @@ const triggerReminders = async () => {
         data: doc.data(),
       }));
 
+      console.log(i, "index")
 
       const foodsExpiringThisWeek = userSpecificMeals.filter(
         (doc) => doc.data.date < inSevenDays && doc.data.date > today.getTime()
       );
       meals.push(...foodsExpiringThisWeek);
-      const expo = new Expo();
-      let messages = [];
+      
 
-     
+
+
+      console.log(meals, "meals")
+      console.log(foodsExpiringThisWeek, "expire food")
+
+
 
       if (foodsExpiringThisWeek.length > 0) {
+
         messages.push({
           to: tokens[i].token,
           sound: "default",
-          body: `${meals[i].data.name} your foods expiring this week`,
-          uid: meals[i].data.uid,
-          name: meals[i].data.name,
-          foodId:meals[i].id
+          body: `${meals.length} foods expiring this week`,
+          // uid: meals[i].data.uid,
+          // name: meals[i].data.name,
+          // foodId:meals[i].id
         });
 
-        const chunks = expo.chunkPushNotifications(messages);
+        // const chunks = expo.chunkPushNotifications(messages);
 
-        for (let chunk of chunks) {
-          const uid = chunk[0].uid;
-          const name=chunk[0].name
-          const foodId=chunk[0].foodId
-        
+        // console.log(chunks)
 
-          const notificationRef = collection(db, "notifications");
+        // for (let chunk of chunks) {
+        //   const uid = chunk[0].uid;
+        //   const name=chunk[0].name
+        //   const foodId=chunk[0].foodId
 
-          const q = query(
-            collection(db, "notifications"),
-            where("uid", "==", uid),
-            where("name", "==", name),
-            where("foodId", "==", foodId)
-          );
-          const existingNotification = (await getDocs(q)).docs.map((doc) =>
-            doc.data()
-          );
 
-         
-          if (!existingNotification || existingNotification.length === 0) {
-            let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        //   const notificationRef = collection(db, "notifications");
 
-            const newNotification = {
-              uid: uid,
-              sent: true, // Update sent status to true
-              name:name,
-              foodId:foodId
-            };
+        //   console.log(notificationRef)
 
-            await addDoc(notificationRef, newNotification);
-          } else {
-            console.log("Notification already sent for UID:", uid);
-          }
-        }
+        //   const q = query(
+        //     collection(db, "notifications"),
+        //     where("uid", "==", uid),
+        //     where("name", "==", name),
+        //     where("foodId", "==", foodId)
+        //   );
+        //   const existingNotification = (await getDocs(q)).docs.map((doc) =>
+        //     doc.data()
+        //   );
+
+
+        //   if (!existingNotification || existingNotification.length === 0) {
+        //     let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+
+        //     const newNotification = {
+        //       uid: uid,
+        //       sent: true, // Update sent status to true
+        //       name:name,
+        //       foodId:foodId
+        //     };
+
+        //     // await addDoc(notificationRef, newNotification);
+        //   } else {
+        //     console.log("Notification already sent for UID:", uid);
+        //   }
+        // }
 
         // res.send(foodsExpiringThisWeek);
       }
     }
+
+
+    const chunks = expo.chunkPushNotifications(messages)
+
+    console.log(chunks, "chunks")
+
+
+    chunks.forEach(chunk => {
+      expo.sendPushNotificationsAsync(chunk).then(res => {
+        console.log(res, "success")
+      }).catch(err => {  
+        console.log('err while sending notifications')
+      })
+    })
     // res.send({ meals, inSevenDays });
-  } catch (e) {
+  } catch (e) {  
     console.log(e);
     // res.json(e);
   }
 };
+
+
 
 app.get("/dev/test", async (req, res) => {
   try {
@@ -217,6 +248,6 @@ app.post("/receipt/process", async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT || 8080, () => {
   console.log(`Listen on the port ${process.env.PORT}...`);
 });
