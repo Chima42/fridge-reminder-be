@@ -33,7 +33,7 @@ const db = getFirestore(firebaseApp);
 // Init a new client
 const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
 
-cron.schedule("*/5 * * * * ", () => {
+cron.schedule("0 8 * * *", () => {
   triggerReminders()
     .then()
     .catch((e) => console.log(e));
@@ -41,13 +41,12 @@ cron.schedule("*/5 * * * * ", () => {
 
 
 const triggerReminders = async () => {
-  console.log("x reminder started");
   console.log("fetching registered device tokens...");
   try {
     const tokensQuery = await getDocs(collection(db, "tokens"));
     const tokens = tokensQuery.docs.map((x) => x.data());
     let meals = [];
-    const inSevenDays = new Date().setDate(new Date().getDate() + 7);
+    const tomorrow = new Date().setDate(new Date().getDate() + 1);
     const today = new Date();
     let messages = [];
     const expo = new Expo();
@@ -64,27 +63,19 @@ const triggerReminders = async () => {
         data: doc.data(),
       }));
 
-      console.log(i, "index")
-
-      const foodsExpiringThisWeek = userSpecificMeals.filter(
-        (doc) => doc.data.date < inSevenDays && doc.data.date > today.getTime()
+      const mealsExpiringWithin24Hours = userSpecificMeals.filter(
+        (doc) => doc.data.date < tomorrow && doc.data.date > today.getTime()
       );
-      meals.push(...foodsExpiringThisWeek);
-      
+      meals.push(...mealsExpiringWithin24Hours);
 
-
-
-      console.log(meals, "meals")
-      console.log(foodsExpiringThisWeek, "expire food")
-
-
+      console.log(meals.length, "expiring tomorrow")
 
       if (foodsExpiringThisWeek.length > 0) {
 
         messages.push({
           to: tokens[i].token,
           sound: "default",
-          body: `${meals.length} foods expiring this week`,
+          body: `${meals.length > 1 ? `${meals.length} foods` : meals[i].data.name} expiring tomorrow`,
           // uid: meals[i].data.uid,
           // name: meals[i].data.name,
           // foodId:meals[i].id
@@ -138,9 +129,6 @@ const triggerReminders = async () => {
 
     const chunks = expo.chunkPushNotifications(messages)
 
-    console.log(chunks, "chunks")
-
-
     chunks.forEach(chunk => {
       expo.sendPushNotificationsAsync(chunk).then(res => {
         console.log(res, "success")
@@ -148,52 +136,14 @@ const triggerReminders = async () => {
         console.log('err while sending notifications')
       })
     })
-    // res.send({ meals, inSevenDays });
   } catch (e) {  
     console.log(e);
-    // res.json(e);
   }
 };
 
 
-
-app.get("/dev/test", async (req, res) => {
-  try {
-    const tokensQuery = await getDocs(collection(db, "tokens"));
-
-    const tokens = tokensQuery.docs.map((x) => x.data());
-    const meals = [];
-    const inSevenDays = new Date().setDate(new Date().getDate() + 7);
-    const today = new Date();
-    for (let i = 0; i < tokens.length; i++) {
-      const q = query(
-        collection(db, "foods"),
-        where("uid", "==", tokens[i].uid)
-      );
-      const userSpecificMeals = (await getDocs(q)).docs.map((doc) =>
-        doc.data()
-      );
-      const foodsExpiringThisWeek = userSpecificMeals.filter(
-        (doc) => doc.date < inSevenDays && doc.date > today.getTime()
-      );
-      meals.push(...foodsExpiringThisWeek);
-      const expo = new Expo();
-      if (foodsExpiringThisWeek.length > 0) {
-        const chunks = expo.chunkPushNotifications([
-          {
-            to: record.token,
-            sound: "default",
-            body: `${foodsExpiringThisWeek} foods expiring this week`,
-          },
-        ]);
-        res.send(foodsExpiringThisWeek);
-      }
-    }
-    res.send({ meals, inSevenDays });
-  } catch (e) {
-    console.log(e);
-    res.json(e);
-  }
+app.get("/health-check", async (req, res) => {
+  res.send("working")
 });
 
 app.post("/token/store", async (req, res) => {
