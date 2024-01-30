@@ -76,9 +76,9 @@ const triggerReminders = async () => {
           to: tokens[i].token,
           sound: "default",
           body: `${meals.length > 1 ? `${meals.length} foods` : meals[i].data.name} expiring tomorrow`,
-          // uid: meals[i].data.uid,
-          // name: meals[i].data.name,
-          // foodId:meals[i].id
+          uid: meals[i].data.uid,
+          name: meals[i].data.name,
+          foodId:meals[i].id
         });
 
         // const chunks = expo.chunkPushNotifications(messages);
