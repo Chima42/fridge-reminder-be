@@ -151,13 +151,17 @@ app.post("/token/store", async (req, res) => {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
     const x = await getDocs(q);
     if (x.docs.some((doc) => doc.exists())) {
-      res.send();
+      res.send({
+        message: "token already exists"
+      });
     } else {
       await addDoc(ref, {
         token: req.body.token,
         uid: req.body.uid,
       });
-      res.status(201).end();
+      res.status(201).send({
+        message: "token added"
+      });
     }
   } catch (e) {
     console.error("Error adding document: ", e);
