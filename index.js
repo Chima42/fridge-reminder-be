@@ -70,7 +70,7 @@ const triggerReminders = async () => {
 
       console.log(meals.length, "expiring tomorrow")
 
-      if (foodsExpiringThisWeek.length > 0) {
+      if (mealsExpiringWithin24Hours.length > 0) {
 
         messages.push({
           to: tokens[i].token,
@@ -123,7 +123,7 @@ const triggerReminders = async () => {
         // }
 
         // res.send(foodsExpiringThisWeek);
-      }
+      } 
     }
 
 
