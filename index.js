@@ -68,7 +68,9 @@ const triggerReminders = async () => {
       );
       meals.push(...mealsExpiringWithin24Hours);
 
-      console.log(meals.length, "expiring tomorrow")
+      console.log("--------------------------------------")
+      console.log(`${tokens[i].uid}: ${meals.length} expiring tomorrow`)
+      console.log(`${tokens[i].uid}: ${meals}`)
 
       if (mealsExpiringWithin24Hours.length > 0) {
 
