@@ -146,6 +146,11 @@ app.get("/health-check", async (req, res) => {
   res.send("working")
 });
 
+app.get("/dev", async (req, res) => {
+  await triggerReminders();
+  res.send("done")
+});
+
 app.post("/token/store", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
