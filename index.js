@@ -42,38 +42,22 @@ cron.schedule("0 8 * * *", () => {
 
 const triggerReminders = async () => {
   console.log("fetching registered device tokens...");
+  const tickets = [];
+  const expo = new Expo();
   try {
-    const tokensQuery = await getDocs(collection(db, "tokens"));
-    const tokens = tokensQuery.docs.map((x) => x.data());
-    let meals = [];
-    const tomorrow = new Date().setDate(new Date().getDate() + 1);
-    const today = new Date();
+    const tokens = await getTokensFromDb();
     let messages = [];
-    const expo = new Expo();
-
-    messages = []
     for (let i = 0; i < tokens.length; i++) {
-      meals = []
-      const q = query(
-        collection(db, "foods"),
-        where("uid", "==", tokens[i].uid)
-      );
-      const userSpecificMeals = (await getDocs(q)).docs.map((doc) => ({
-        id: doc.id,
-        data: doc.data(),
-      }));
-
-      const mealsExpiringWithin24Hours = userSpecificMeals.filter(
-        (doc) => doc.data.date < tomorrow && doc.data.date > today.getTime()
-      );
-      meals.push(...mealsExpiringWithin24Hours);
+      meals = [];
+      const {uid} = tokens[i];
+      const userSpecificMeals = await getUserMeals(uid);
+      const expiringMeals = getMealsExpiringWithin24Hours(userSpecificMeals);
+      meals.push(...expiringMeals);
 
       console.log("--------------------------------------")
       console.log(`${tokens[i].uid}: ${meals.length} expiring tomorrow`)
-      console.log(`${tokens[i].uid}: ${meals}`)
 
-      if (mealsExpiringWithin24Hours.length > 0) {
-
+      if (expiringMeals.length > 0) {
         messages.push({
           to: tokens[i].token,
           sound: "default",
@@ -82,66 +66,102 @@ const triggerReminders = async () => {
           name: meals[i].data.name,
           foodId:meals[i].id
         });
-
-        // const chunks = expo.chunkPushNotifications(messages);
-
-        // console.log(chunks)
-
-        // for (let chunk of chunks) {
-        //   const uid = chunk[0].uid;
-        //   const name=chunk[0].name
-        //   const foodId=chunk[0].foodId
-
-
-        //   const notificationRef = collection(db, "notifications");
-
-        //   console.log(notificationRef)
-
-        //   const q = query(
-        //     collection(db, "notifications"),
-        //     where("uid", "==", uid),
-        //     where("name", "==", name),
-        //     where("foodId", "==", foodId)
-        //   );
-        //   const existingNotification = (await getDocs(q)).docs.map((doc) =>
-        //     doc.data()
-        //   );
-
-
-        //   if (!existingNotification || existingNotification.length === 0) {
-        //     let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-
-        //     const newNotification = {
-        //       uid: uid,
-        //       sent: true, // Update sent status to true
-        //       name:name,
-        //       foodId:foodId
-        //     };
-
-        //     // await addDoc(notificationRef, newNotification);
-        //   } else {
-        //     console.log("Notification already sent for UID:", uid);
-        //   }
-        // }
-
-        // res.send(foodsExpiringThisWeek);
       } 
     }
 
 
     const chunks = expo.chunkPushNotifications(messages)
-
-    chunks.forEach(chunk => {
-      expo.sendPushNotificationsAsync(chunk).then(res => {
-        console.log(res, "success")
-      }).catch(err => {  
-        console.log('err while sending notifications')
-      })
-    })
+    for (let chunk of chunks) {
+      let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+      tickets.push(...ticketChunk);
+    }
   } catch (e) {  
-    console.log(e);
+    console.log("error", e);
+  }
+
+  let receiptIds = [];
+  for (let ticket of tickets) {
+    // NOTE: Not all tickets have IDs; for example, tickets for notifications
+    // that could not be enqueued will have error information and no receipt ID.
+    if (ticket.id) {
+      receiptIds.push(ticket.id);
+    }
+  }
+
+  let receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+  // Like sending notifications, there are different strategies you could use
+  // to retrieve batches of receipts from the Expo service.
+  for (let chunk of receiptIdChunks) {
+    try {
+      let receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+      console.log("receipts", receipts);
+
+      // The receipts specify whether Apple or Google successfully received the
+      // notification and information about an error, if one occurred.
+      for (let receiptId in receipts) {
+        let { status, message, details } = receipts[receiptId];
+        if (status === 'ok') {
+          handleDeviceNotRegistered(chunk)
+          continue;
+        } else if (status === 'error') {
+          console.error(
+            `There was an error sending a notification: ${message}`
+          );
+          if (details && details.error) {
+            handleDeviceNotRegistered(chunk)
+            // if (details.error === "DeviceNotRegistered") {
+            //   handleDeviceNotRegistered(chunk)
+            // }
+
+            // The error codes are listed in the Expo documentation:
+            // https://docs.expo.io/push-notifications/sending-notifications/#individual-errors
+            // You must handle the errors appropriately.
+            console.error(`The error code is ${details.error}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
   }
 };
+
+const handleDeviceNotRegistered = (chunk) => {
+  console.log("chunk", chunk)
+}
+
+const getMealsExpiringWithin24Hours = (meals) => {
+  const {tomorrow, today} = getTimeFrames();
+  return meals.filter(
+    (doc) => doc.data.date < tomorrow && doc.data.date > today.getTime()
+  );
+}
+
+const getUserMeals = async (uid) => {
+  return (await getDocs(getQuery(uid))).docs.map((doc) => ({
+    id: doc.id,
+    data: doc.data(),
+  }));
+}
+
+const getQuery = (uid) => {
+  return query(
+    collection(db, "foods"),
+    where("uid", "==", uid)
+  )
+}
+
+const getTimeFrames = () => {
+  return {
+    tomorrow: new Date().setDate(new Date().getDate() + 1),
+    today: new Date()
+  }
+}
+
+const getTokensFromDb = async () => {
+  const tokensQuery = await getDocs(collection(db, "tokens"));
+  return tokensQuery.docs.map((x) => x.data());;
+}
 
 
 app.get("/health-check", async (req, res) => {
