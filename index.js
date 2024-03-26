@@ -29,6 +29,7 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const mealsDb = ["eggs", "milk", "sweet pepper", "tomatoes"]
 
 // Init a new client
 const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
@@ -221,8 +222,18 @@ app.post("/receipt/process", async (req, res) => {
     }
     console.log("receipt processed, returning meals");
 
+    const meals = apiResponse.document.lineItems
+    .map((x) => x.description)
+
+    const formattedMeals = meals
+    .map((food) => {
+      const found = mealsDb.find(x => food.toLowerCase().includes(x.toLowerCase()));
+      console.log(found, food)
+      return found ? found : food;
+    });
+
     res.json({
-      meals: apiResponse.document.lineItems.map((x) => x.description),
+      meals: formattedMeals
     });
   } catch (e) {
     console.log("error", e);
