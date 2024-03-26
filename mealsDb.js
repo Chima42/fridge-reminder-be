@@ -1,0 +1,2 @@
+const mealsDb = ["eggs", "milk", "sweet pepper", "tomatoes", "chicken wings", "carrots", "ice cream", "brussels sprouts", "sausages", "smoked salmon", "diced lamb", "chicken thighs", "chicken legs", "red pepper", "broccoli", "bananas", "strawberries", "pineapple", "orange", "garlic", "beef", "butter", "burger sauce", "houmous", "chicken thigh"]
+module.exports = mealsDb;
