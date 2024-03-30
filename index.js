@@ -52,17 +52,17 @@ const triggerReminders = async () => {
       meals = [];
       const {uid} = tokens[i];
       const userSpecificMeals = await getUserMeals(uid);
-      const expiringMeals = getMealsExpiringWithin24Hours(userSpecificMeals);
+      const expiringMeals = getMealsExpiringToday(userSpecificMeals);
       meals.push(...expiringMeals);
 
       console.log("--------------------------------------")
-      console.log(`${tokens[i].uid}: ${meals.length} expiring tomorrow`)
+      console.log(`${tokens[i].uid}: ${meals.length} expiring today`)
 
       if (expiringMeals.length > 0) {
         messages.push({
           to: tokens[i].token,
           sound: "default",
-          body: `${meals.length > 1 ? `${meals.length} foods` : meals[i].data.name} expiring tomorrow`,
+          body: `${meals.length > 1 ? `${meals.length} foods` : meals[i].data.name} expiring today`,
           uid: meals[i].data.uid,
           name: meals[i].data.name,
           foodId:meals[i].id
@@ -132,10 +132,10 @@ const triggerReminders = async () => {
 //   console.log("chunk", chunk)
 // }
 
-const getMealsExpiringWithin24Hours = (meals) => {
-  const {tomorrow, today} = getTimeFrames();
+const getMealsExpiringToday = (meals) => {
+  const today = formatDate();
   return meals.filter(
-    (doc) => doc.data.date < tomorrow && doc.data.date > today.getTime()
+    (doc) => formatDate(doc.data.date) === today 
   );
 }
 
@@ -153,11 +153,9 @@ const getQuery = (uid) => {
   )
 }
 
-const getTimeFrames = () => {
-  return {
-    tomorrow: new Date().setDate(new Date().getDate() + 1),
-    today: new Date()
-  }
+const formatDate = (date) => {
+  const theDate = date ? new Date(date) : new Date();
+  return theDate.toISOString().split("T")[0];
 }
 
 const getTokensFromDb = async () => {
@@ -222,13 +220,11 @@ app.post("/receipt/process", async (req, res) => {
     }
     console.log("receipt processed, returning meals");
 
-    const meals = apiResponse.document.lineItems
-    .map((x) => x.description)
+    const meals = apiResponse.document.lineItems.map((x) => x.description)
 
     const formattedMeals = meals
     .map((food) => {
       const found = mealsDb.find(x => food.toLowerCase().includes(x.toLowerCase()));
-      console.log(found, food)
       return found ? found : food;
     });
 
