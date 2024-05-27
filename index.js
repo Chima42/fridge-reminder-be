@@ -186,9 +186,10 @@ app.delete("/token/delete", async (req, res) => {
 });
 
 app.post("/token/store", async (req, res) => {
+  const ref = collection(db, "tokens");
   try {
-    const ref = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
-    const x = await getDocs(ref);
+    const q = query(ref, where("uid", "==", req.body.uid));
+    const x = await getDocs(q);
     if (x.docs.some((doc) => doc.exists())) {
       console.log("--------------------------------------")
       console.log("token already exists")
@@ -209,16 +210,6 @@ app.post("/token/store", async (req, res) => {
     res.status(500).send(e);
   }
 
-  // try {
-  //   await addDoc(ref, {
-  //     token: req.body.token,
-  //     uid: req.body.uid
-  //   });
-  //   res.status(201).end();
-  // } catch (e) {
-  //     console.error("Error adding document: ", e);
-  //     res.status(500).send(e)
-  // }
 });
 
 app.post("/receipt/process", async (req, res) => {
