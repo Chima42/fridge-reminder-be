@@ -9,7 +9,7 @@ const mealsDb = require("./mealsDb");
 require("dotenv").config();
 const { Expo } = require("expo-server-sdk");
 const { initializeApp } = require("firebase/app");
-const { getFirestore, getDoc } = require("firebase/firestore");
+const { getFirestore, getDoc, deleteDoc } = require("firebase/firestore");
 const {
   collection,
   query,
@@ -173,11 +173,25 @@ app.get("/dev", async (req, res) => {
   res.send("done")
 });
 
-app.post("/token/store", async (req, res) => {
+app.delete("/token/delete", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
-    const x = await getDocs(q);
+    const doc = await getDocs(q);
+    const x = await deleteDoc(doc.docs[0].ref);
+    res.status(200).send({x});
+  } catch (e) {
+    console.error("Error removing document: ", e);
+    res.status(500).send(e);
+  }
+});
+
+app.post("/token/store", async (req, res) => {
+  try {
+    const ref = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
+    const x = await getDocs(ref);
     if (x.docs.some((doc) => doc.exists())) {
+      console.log("--------------------------------------")
+      console.log("token already exists")
       res.send({
         message: "token already exists"
       });
