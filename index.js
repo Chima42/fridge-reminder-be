@@ -49,24 +49,24 @@ const triggerReminders = async () => {
     const tokens = await getTokensFromDb();
     let messages = [];
     for (let i = 0; i < tokens.length; i++) {
-      meals = [];
       const {uid} = tokens[i];
       const userSpecificMeals = await getUserMeals(uid);
       const expiringMeals = getMealsExpiringToday(userSpecificMeals);
-      meals.push(...expiringMeals);
 
       console.log("--------------------------------------")
-      console.log(`${tokens[i].uid}: ${meals.length} expiring today`)
+      console.log(`${tokens[i].uid}: ${expiringMeals.length} expiring today`)
 
       if (expiringMeals.length > 0) {
-        messages.push({
-          to: tokens[i].token,
-          sound: "default",
-          body: `${meals.length > 1 ? `${meals.length} foods` : meals[i].data.name} expiring today`,
-          uid: meals[i].data.uid,
-          name: meals[i].data.name,
-          foodId:meals[i].id
-        });
+        expiringMeals.forEach((ep, mealIndex) => {
+          messages.push({
+            to: tokens[mealIndex].token,
+            sound: "default",
+            body: `${expiringMeals.length > 1 ? `${expiringMeals.length} foods` : expiringMeals[mealIndex].data.name} expiring today`,
+            uid,
+            name: expiringMeals[mealIndex].data.name,
+            foodId: expiringMeals[mealIndex].id
+          });
+        })
       } 
     }
 
@@ -75,62 +75,59 @@ const triggerReminders = async () => {
     for (let chunk of chunks) {
       let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
       console.log("Notification sent for " + chunk[0].uid)
-      // tickets.push(...ticketChunk);
+      tickets.push(...ticketChunk);
     }
   } catch (e) {  
     console.log("error", e);
   }
 
-  // let receiptIds = [];
-  // for (let ticket of tickets) {
-  //   // NOTE: Not all tickets have IDs; for example, tickets for notifications
-  //   // that could not be enqueued will have error information and no receipt ID.
-  //   if (ticket.id) {
-  //     receiptIds.push(ticket.id);
-  //   }
-  // }
+  let receiptIds = [];
+  for (let ticket of tickets) {
+    // NOTE: Not all tickets have IDs; for example, tickets for notifications
+    // that could not be enqueued will have error information and no receipt ID.
+    if (ticket.id) {
+      receiptIds.push(ticket.id);
+    } else {
+      console.log("ticket", ticket)
+    }
+  }
 
-  // let receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+  let receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
   // Like sending notifications, there are different strategies you could use
   // to retrieve batches of receipts from the Expo service.
-  // for (let chunk of receiptIdChunks) {
-  //   try {
-  //     let receipts = await expo.getPushNotificationReceiptsAsync(chunk);
-  //     console.log("receipts", receipts);
+  for (let chunk of receiptIdChunks) {
+    try {
+      let receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+      console.log("receipts", receipts);
 
-  //     // The receipts specify whether Apple or Google successfully received the
-  //     // notification and information about an error, if one occurred.
-  //     for (let receiptId in receipts) {
-  //       let { status, message, details } = receipts[receiptId];
-  //       if (status === 'ok') {
-  //         handleDeviceNotRegistered(chunk)
-  //         continue;
-  //       } else if (status === 'error') {
-  //         console.error(
-  //           `There was an error sending a notification: ${message}`
-  //         );
-  //         if (details && details.error) {
-  //           handleDeviceNotRegistered(chunk)
-  //           // if (details.error === "DeviceNotRegistered") {
-  //           //   handleDeviceNotRegistered(chunk)
-  //           // }
+      // The receipts specify whether Apple or Google successfully received the
+      // notification and information about an error, if one occurred.
+      for (let receiptId in receipts) {
+        let { status, message, details } = receipts[receiptId];
+        if (status === 'ok') {
+          continue;
+        } else if (status === 'error') {
+          console.error(
+            `There was an error sending a notification: ${message}`
+          );
+          if (details && details.error) {
+            console.log("chunk", chunk)
+            if (details.error === "DeviceNotRegistered") {
+              console.log("chunk", chunk)
+            }
 
-  //           // The error codes are listed in the Expo documentation:
-  //           // https://docs.expo.io/push-notifications/sending-notifications/#individual-errors
-  //           // You must handle the errors appropriately.
-  //           console.error(`The error code is ${details.error}`);
-  //         }
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error(error);
-  //   }
-  // }
+            // The error codes are listed in the Expo documentation:
+            // https://docs.expo.io/push-notifications/sending-notifications/#individual-errors
+            // You must handle the errors appropriately.
+            console.error(`The error code is ${details.error}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
 };
-
-// const handleDeviceNotRegistered = (chunk) => {
-//   console.log("chunk", chunk)
-// }
 
 const getMealsExpiringToday = (meals) => {
   const today = formatDate();
