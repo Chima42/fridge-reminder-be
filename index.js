@@ -173,9 +173,10 @@ app.get("/dev", async (req, res) => {
 app.delete("/token/delete", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
-    const doc = await getDocs(q);
-    if (x.docs.some((doc) => doc.exists())) {
+    const data = await getDocs(q);
+    if (data.docs.some((doc) => doc.exists())) {
       await deleteDoc(doc.docs[0].ref);
+      console.log(`Token for ${req.body.uid} removed`)  
     } else {
       console.log(`No documents found for ${req.body.uid}`)  
     }
@@ -190,8 +191,8 @@ app.post("/token/store", async (req, res) => {
   const ref = collection(db, "tokens");
   try {
     const q = query(ref, where("uid", "==", req.body.uid));
-    const x = await getDocs(q);
-    if (x.docs.some((doc) => doc.exists())) {
+    const data = await getDocs(q);
+    if (data.docs.some((doc) => doc.exists())) {
       console.log("--------------------------------------")
       console.log("token already exists")
       res.send({
