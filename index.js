@@ -174,8 +174,12 @@ app.delete("/token/delete", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
     const doc = await getDocs(q);
-    const x = await deleteDoc(doc.docs[0].ref);
-    res.status(200).send({x});
+    if (x.docs.some((doc) => doc.exists())) {
+      await deleteDoc(doc.docs[0].ref);
+    } else {
+      console.log(`No documents found for ${req.body.uid}`)  
+    }
+    res.status(200).send();
   } catch (e) {
     console.error("Error removing document: ", e);
     res.status(500).send(e);
