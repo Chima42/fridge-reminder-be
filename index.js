@@ -59,7 +59,7 @@ const triggerReminders = async () => {
       if (expiringMeals.length > 0) {
         expiringMeals.forEach((ep, mealIndex) => {
           messages.push({
-            to: tokens[mealIndex].token,
+            to: tokens[i].token,
             sound: "default",
             body: `${expiringMeals.length > 1 ? `${expiringMeals.length} foods` : expiringMeals[mealIndex].data.name} expiring today`,
             uid,
