@@ -40,7 +40,6 @@ cron.schedule("0 8 * * *", () => {
     .catch((e) => console.log(e));
 });
 
-
 const triggerReminders = async () => {
   console.log("fetching registered device tokens...");
   const tickets = [];
@@ -49,35 +48,48 @@ const triggerReminders = async () => {
     const tokens = await getTokensFromDb();
     let messages = [];
     for (let i = 0; i < tokens.length; i++) {
-      const {uid} = tokens[i];
+      const { uid } = tokens[i];
       const userSpecificMeals = await getUserMeals(uid);
       const expiringMeals = getMealsExpiringToday(userSpecificMeals);
 
-      console.log("--------------------------------------")
-      console.log(`${tokens[i].uid}: ${expiringMeals.length} expiring today`)
+      console.log("--------------------------------------");
+      console.log(`${tokens[i].uid}: ${expiringMeals.length} expiring today`);
+
+      // if (expiringMeals.length > 0) {
+      //   expiringMeals.forEach((ep, mealIndex) => {
+      //     messages.push({
+      //       to: tokens[i].token,
+      //       sound: "default",
+      //       body: `${expiringMeals.length > 1 ? `${expiringMeals.length} foods` : expiringMeals[mealIndex].data.name} expiring today`,
+      //       uid,
+      //       name: expiringMeals[mealIndex].data.name,
+      //       foodId: expiringMeals[mealIndex].id
+      //     });
+      //   })
+      // }
 
       if (expiringMeals.length > 0) {
-        expiringMeals.forEach((ep, mealIndex) => {
-          messages.push({
-            to: tokens[i].token,
-            sound: "default",
-            body: `${expiringMeals.length > 1 ? `${expiringMeals.length} foods` : expiringMeals[mealIndex].data.name} expiring today`,
-            uid,
-            name: expiringMeals[mealIndex].data.name,
-            foodId: expiringMeals[mealIndex].id
-          });
-        })
-      } 
+        // Create one consolidated message for the user
+        messages.push({
+          to: tokens[i].token,
+          sound: "default",
+          body: `${expiringMeals.length} food${
+            expiringMeals.length > 1 ? "s" : ""
+          } expiring today`,
+          uid,
+          // mealNames: expiringMeals.map((meal) => meal.data.name).join(", "), // Optional: Add meal names if needed
+          // foodIds: expiringMeals.map((meal) => meal.id), // Optional: Include IDs for tracking
+        });
+      }
     }
 
-
-    const chunks = expo.chunkPushNotifications(messages)
+    const chunks = expo.chunkPushNotifications(messages);
     for (let chunk of chunks) {
       let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      console.log("Notification sent for " + chunk[0].uid)
+      console.log("Notification sent for " + chunk[0].uid);
       tickets.push(...ticketChunk);
     }
-  } catch (e) {  
+  } catch (e) {
     console.log("error", e);
   }
 
@@ -88,7 +100,7 @@ const triggerReminders = async () => {
     if (ticket.id) {
       receiptIds.push(ticket.id);
     } else {
-      console.log("ticket", ticket)
+      console.log("ticket", ticket);
     }
   }
 
@@ -104,16 +116,16 @@ const triggerReminders = async () => {
       // notification and information about an error, if one occurred.
       for (let receiptId in receipts) {
         let { status, message, details } = receipts[receiptId];
-        if (status === 'ok') {
+        if (status === "ok") {
           continue;
-        } else if (status === 'error') {
+        } else if (status === "error") {
           console.error(
             `There was an error sending a notification: ${message}`
           );
           if (details && details.error) {
-            console.log("chunk", chunk)
+            console.log("chunk", chunk);
             if (details.error === "DeviceNotRegistered") {
-              console.log("chunk", chunk)
+              console.log("chunk", chunk);
             }
 
             // The error codes are listed in the Expo documentation:
@@ -131,43 +143,37 @@ const triggerReminders = async () => {
 
 const getMealsExpiringToday = (meals) => {
   const today = formatDate();
-  return meals.filter(
-    (doc) => formatDate(doc.data.date) === today 
-  );
-}
+  return meals.filter((doc) => formatDate(doc.data.date) === today);
+};
 
 const getUserMeals = async (uid) => {
   return (await getDocs(getQuery(uid))).docs.map((doc) => ({
     id: doc.id,
     data: doc.data(),
   }));
-}
+};
 
 const getQuery = (uid) => {
-  return query(
-    collection(db, "foods"),
-    where("uid", "==", uid)
-  )
-}
+  return query(collection(db, "foods"), where("uid", "==", uid));
+};
 
 const formatDate = (date) => {
   const theDate = date ? new Date(date) : new Date();
   return theDate.toISOString().split("T")[0];
-}
+};
 
 const getTokensFromDb = async () => {
   const tokensQuery = await getDocs(collection(db, "tokens"));
-  return tokensQuery.docs.map((x) => x.data());;
-}
-
+  return tokensQuery.docs.map((x) => x.data());
+};
 
 app.get("/health-check", async (req, res) => {
-  res.send("working")
+  res.send("working");
 });
 
 app.get("/dev", async (req, res) => {
   await triggerReminders();
-  res.send("done")
+  res.send("done");
 });
 
 app.delete("/token/delete", async (req, res) => {
@@ -176,9 +182,9 @@ app.delete("/token/delete", async (req, res) => {
     const data = await getDocs(q);
     if (data.docs.some((doc) => doc.exists())) {
       await deleteDoc(data.docs[0].ref);
-      console.log(`Token for ${req.body.uid} removed`)  
+      console.log(`Token for ${req.body.uid} removed`);
     } else {
-      console.log(`No documents found for ${req.body.uid}`)  
+      console.log(`No documents found for ${req.body.uid}`);
     }
     res.status(200).send();
   } catch (e) {
@@ -193,10 +199,10 @@ app.post("/token/store", async (req, res) => {
     const q = query(ref, where("uid", "==", req.body.uid));
     const data = await getDocs(q);
     if (data.docs.some((doc) => doc.exists())) {
-      console.log("--------------------------------------")
-      console.log("token already exists")
+      console.log("--------------------------------------");
+      console.log("token already exists");
       res.send({
-        message: "token already exists"
+        message: "token already exists",
       });
     } else {
       await addDoc(ref, {
@@ -204,14 +210,13 @@ app.post("/token/store", async (req, res) => {
         uid: req.body.uid,
       });
       res.status(201).send({
-        message: "token added"
+        message: "token added",
       });
     }
   } catch (e) {
     console.error("Error adding document: ", e);
     res.status(500).send(e);
   }
-
 });
 
 app.post("/receipt/process", async (req, res) => {
@@ -227,16 +232,17 @@ app.post("/receipt/process", async (req, res) => {
     }
     console.log("receipt processed, returning meals");
 
-    const meals = apiResponse.document.lineItems.map((x) => x.description)
+    const meals = apiResponse.document.lineItems.map((x) => x.description);
 
-    const formattedMeals = meals
-    .map((food) => {
-      const found = mealsDb.find(x => food.toLowerCase().includes(x.toLowerCase()));
+    const formattedMeals = meals.map((food) => {
+      const found = mealsDb.find((x) =>
+        food.toLowerCase().includes(x.toLowerCase())
+      );
       return found ? found : food;
     });
 
     res.json({
-      meals: formattedMeals
+      meals: formattedMeals,
     });
   } catch (e) {
     console.log("error", e);
@@ -244,6 +250,6 @@ app.post("/receipt/process", async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 8080, () => {
-  console.log(`Listen on the port ${process.env.PORT}...`);
+app.listen(3000 || 8080, () => {
+  console.log(`Listen on the port ${3000}...`);
 });
