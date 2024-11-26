@@ -180,6 +180,7 @@ app.delete("/token/delete", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
     const data = await getDocs(q);
+    console.log(data);
     if (data.docs.some((doc) => doc.exists())) {
       await deleteDoc(data.docs[0].ref);
       console.log(`Token for ${req.body.uid} removed`);
