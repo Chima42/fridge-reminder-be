@@ -252,5 +252,5 @@ app.post("/receipt/process", async (req, res) => {
 });
 
 app.listen(process.env.PORT || 8080, () => {
-  console.log(`Listen on the port ${process.env.PORT}...`);
+  console.log(`Listen on the port ${process.env.PORT || 8080}...`);
 });
