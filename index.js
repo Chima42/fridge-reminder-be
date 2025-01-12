@@ -286,7 +286,7 @@ app.post("/send-reminder/:uid", async (req, res) => {
 app.delete("/token/delete", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
-    const data = (await getDocs(q)).docs;
+    const data = (await getDocs(q)).docs.map((x) => x.data());
 
     res.status(200).json({ data, uid: req.body.uid });
     // if (data.docs.some((doc) => doc.exists())) {
