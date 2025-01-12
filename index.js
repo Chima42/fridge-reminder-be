@@ -286,11 +286,16 @@ app.post("/send-reminder/:uid", async (req, res) => {
 app.delete("/token/delete", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
-    const data = (await getDocs(q)).docs.map((x) => x.data());
+    const data = (await getDocs(q)).docs.map((x) => {
+      return {
+        ...x.data(),
+        ref: x.ref,
+      };
+    });
 
     for (let i = 0; i < data.length; i++) {
       try {
-        await deleteDoc(data.docs[0].ref);
+        await deleteDoc(data[i].ref);
       } catch (e) {
         console.log(e);
       }
