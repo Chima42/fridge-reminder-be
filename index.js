@@ -141,6 +141,108 @@ const triggerReminders = async () => {
   }
 };
 
+const sendAReminder = async (uid) => {
+  console.log("fetching registered device tokens...");
+  const tickets = [];
+  const expo = new Expo();
+  try {
+    const tokens = await getTokensFromDb();
+    console.log(tokens);
+    let messages = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const { uid } = tokens[i];
+      const userSpecificMeals = await getUserMeals(uid);
+      const expiringMeals = getMealsExpiringToday(userSpecificMeals);
+
+      console.log("--------------------------------------");
+      console.log(`${tokens[i].uid}: ${expiringMeals.length} expiring today`);
+
+      // if (expiringMeals.length > 0) {
+      //   expiringMeals.forEach((ep, mealIndex) => {
+      //     messages.push({
+      //       to: tokens[i].token,
+      //       sound: "default",
+      //       body: `${expiringMeals.length > 1 ? `${expiringMeals.length} foods` : expiringMeals[mealIndex].data.name} expiring today`,
+      //       uid,
+      //       name: expiringMeals[mealIndex].data.name,
+      //       foodId: expiringMeals[mealIndex].id
+      //     });
+      //   })
+      // }
+
+      if (expiringMeals.length > 0) {
+        // Create one consolidated message for the user
+        messages.push({
+          to: tokens[i].token,
+          sound: "default",
+          body: `${expiringMeals.length} food${
+            expiringMeals.length > 1 ? "s" : ""
+          } expiring today`,
+          uid,
+          // mealNames: expiringMeals.map((meal) => meal.data.name).join(", "), // Optional: Add meal names if needed
+          // foodIds: expiringMeals.map((meal) => meal.id), // Optional: Include IDs for tracking
+        });
+      }
+    }
+
+    const chunks = expo.chunkPushNotifications(messages);
+    for (let chunk of chunks) {
+      let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+      console.log("Notification sent for " + chunk[0].uid);
+      tickets.push(...ticketChunk);
+    }
+  } catch (e) {
+    console.log("error", e);
+  }
+
+  let receiptIds = [];
+  for (let ticket of tickets) {
+    // NOTE: Not all tickets have IDs; for example, tickets for notifications
+    // that could not be enqueued will have error information and no receipt ID.
+    if (ticket.id) {
+      receiptIds.push(ticket.id);
+    } else {
+      console.log("ticket", ticket);
+    }
+  }
+
+  let receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+  // Like sending notifications, there are different strategies you could use
+  // to retrieve batches of receipts from the Expo service.
+  for (let chunk of receiptIdChunks) {
+    try {
+      let receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+      console.log("receipts", receipts);
+
+      // The receipts specify whether Apple or Google successfully received the
+      // notification and information about an error, if one occurred.
+      for (let receiptId in receipts) {
+        let { status, message, details } = receipts[receiptId];
+        if (status === "ok") {
+          continue;
+        } else if (status === "error") {
+          console.error(
+            `There was an error sending a notification: ${message}`
+          );
+          if (details && details.error) {
+            console.log("chunk", chunk);
+            if (details.error === "DeviceNotRegistered") {
+              console.log("chunk", chunk);
+            }
+
+            // The error codes are listed in the Expo documentation:
+            // https://docs.expo.io/push-notifications/sending-notifications/#individual-errors
+            // You must handle the errors appropriately.
+            console.error(`The error code is ${details.error}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+};
+
 const getMealsExpiringToday = (meals) => {
   const today = formatDate();
   return meals.filter((doc) => formatDate(doc.data.date) === today);
@@ -176,18 +278,24 @@ app.get("/dev", async (req, res) => {
   res.send("done");
 });
 
+app.post("/send-reminder/:uid", async (req, res) => {
+  await sendAReminder(req.params["uid"]);
+  res.send("done");
+});
+
 app.delete("/token/delete", async (req, res) => {
   try {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
-    const data = await getDocs(q);
-    console.log(data);
-    if (data.docs.some((doc) => doc.exists())) {
-      await deleteDoc(data.docs[0].ref);
-      console.log(`Token for ${req.body.uid} removed`);
-    } else {
-      console.log(`No documents found for ${req.body.uid}`);
-    }
-    res.status(200).send();
+    const data = (await getDocs(q)).docs;
+
+    res.status(200).json({ data, uid: req.body.uid });
+    // if (data.docs.some((doc) => doc.exists())) {
+    //   await deleteDoc(data.docs[0].ref);
+    //   console.log(`Token for ${req.body.uid} removed`);
+    // } else {
+    //   console.log(`No documents found for ${req.body.uid}`);
+    // }
+    // res.status(200).send();
   } catch (e) {
     console.error("Error removing document: ", e);
     res.status(500).send(e);
