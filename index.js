@@ -288,7 +288,16 @@ app.delete("/token/delete", async (req, res) => {
     const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
     const data = (await getDocs(q)).docs.map((x) => x.data());
 
-    res.status(200).json({ data, uid: req.body.uid });
+    for (let i = 0; i < data.length; i++) {
+      try {
+        await deleteDoc(data.docs[0].ref);
+      } catch (e) {
+        console.log(e);
+      }
+    }
+    res.status(200).send();
+
+    // res.status(200).json({ data, uid: req.body.uid });
     // if (data.docs.some((doc) => doc.exists())) {
     //   await deleteDoc(data.docs[0].ref);
     //   console.log(`Token for ${req.body.uid} removed`);
