@@ -146,7 +146,7 @@ const sendAReminder = async (uid) => {
   const tickets = [];
   const expo = new Expo();
   try {
-    const tokens = await getTokensFromDb();
+    const tokens = (await getTokensFromDb()).filter((x) => x.uid === uid);
     console.log(tokens);
     let messages = [];
     for (let i = 0; i < tokens.length; i++) {
