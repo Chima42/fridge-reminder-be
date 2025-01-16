@@ -245,7 +245,10 @@ const sendAReminder = async (uid) => {
 
 const getMealsExpiringToday = (meals) => {
   const today = formatDate();
-  return meals.filter((doc) => formatDate(doc.data.date) === today);
+  return meals
+    .filter((doc) => formatDate(doc.data.date) === today)
+    .filter((doc) => !doc.data.expired)
+    .filter((doc) => !doc.data.eaten);
 };
 
 const getUserMeals = async (uid) => {
