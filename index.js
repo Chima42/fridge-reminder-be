@@ -243,6 +243,7 @@ const sendAReminder = async (uid) => {
   }
 };
 
+// filtering out eaten and expired meals
 const getMealsExpiringToday = (meals) => {
   const today = formatDate();
   return meals
