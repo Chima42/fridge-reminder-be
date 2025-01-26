@@ -35,7 +35,6 @@ getSecret()
     console.log("Error starting server", e);
   });
 
-// Init a new client
 const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
 
 cron.schedule("0 8 * * *", () => {
