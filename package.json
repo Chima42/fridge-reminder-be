@@ -19,11 +19,13 @@
   },
   "homepage": "https://github.com/Chima42/fridge-reminder-be#readme",
   "dependencies": {
+    "@google-cloud/secret-manager": "^5.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "expo-server-sdk": "^3.7.0",
     "express": "^4.18.2",
     "firebase": "^11.1.0",
+    "firebase-admin": "^13.0.2",
     "mindee": "^3.10.1",
     "node-cron": "^3.0.2",
     "npm": "^9.8.1"

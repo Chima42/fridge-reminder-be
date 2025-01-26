@@ -8,28 +8,32 @@ const fs = require("fs");
 const mealsDb = require("./mealsDb");
 require("dotenv").config();
 const { Expo } = require("expo-server-sdk");
-const { initializeApp } = require("firebase/app");
-const { getFirestore, getDoc, deleteDoc } = require("firebase/firestore");
-const {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  addDoc,
-} = require("firebase/firestore");
+const { SecretManagerServiceClient } = require("@google-cloud/secret-manager");
 const cron = require("node-cron");
-const firebaseConfig = {
-  apiKey: process.env.APIKEY,
-  authDomain: process.env.AUTHDOMAIN,
-  projectId: process.env.PROJECTID,
-  storageBucket: process.env.STORAGEBUCKET,
-  messagingSenderId: process.env.MESSAGINGSENDERID,
-  appId: process.env.APPID,
-};
+const admin = require("firebase-admin");
+const client = new SecretManagerServiceClient();
+// process.env.GOOGLE_APPLICATION_CREDENTIALS =
+//   "/Users/chimanwosu/Desktop/FridgeReminders Backend/serviceAccountKey.json";
+async function getSecret() {
+  const [version] = await client.accessSecretVersion({
+    name: "projects/fridge-reminders-auth/secrets/fridgeRemindersServiceAccountKey/versions/latest",
+  });
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+  const payload = version.payload.data.toString();
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(payload)),
+  });
+}
+
+let db;
+
+getSecret()
+  .then(() => {
+    db = admin.firestore();
+  })
+  .catch((e) => {
+    console.log("Error starting server", e);
+  });
 
 // Init a new client
 const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
@@ -141,7 +145,7 @@ const triggerReminders = async () => {
   }
 };
 
-const sendAReminder = async (uid) => {
+const sendAOneOffReminder = async (uid) => {
   console.log("fetching registered device tokens...");
   const tickets = [];
   const expo = new Expo();
@@ -253,14 +257,14 @@ const getMealsExpiringToday = (meals) => {
 };
 
 const getUserMeals = async (uid) => {
-  return (await getDocs(getQuery(uid))).docs.map((doc) => ({
+  const querySnapshot = await db
+    .collection("foods")
+    .where("uid", "==", uid)
+    .get();
+  return querySnapshot.docs.map((doc) => ({
     id: doc.id,
     data: doc.data(),
   }));
-};
-
-const getQuery = (uid) => {
-  return query(collection(db, "foods"), where("uid", "==", uid));
 };
 
 const formatDate = (date) => {
@@ -269,8 +273,8 @@ const formatDate = (date) => {
 };
 
 const getTokensFromDb = async () => {
-  const tokensQuery = await getDocs(collection(db, "tokens"));
-  return tokensQuery.docs.map((x) => x.data());
+  const tokens = await db.collection("tokens").get();
+  return tokens.docs.map((x) => x.data());
 };
 
 app.get("/health-check", async (req, res) => {
@@ -283,37 +287,37 @@ app.get("/dev", async (req, res) => {
 });
 
 app.post("/send-reminder/:uid", async (req, res) => {
-  await sendAReminder(req.params["uid"]);
+  await sendAOneOffReminder(req.params["uid"]);
   res.send("done");
 });
 
 app.delete("/token/delete", async (req, res) => {
-  try {
-    const q = query(collection(db, "tokens"), where("uid", "==", req.body.uid));
-    const data = (await getDocs(q)).docs.map((x) => {
-      return {
-        ...x.data(),
-        ref: x.ref,
-      };
-    });
+  const uid = req.body.uid;
 
-    for (let i = 0; i < data.length; i++) {
+  try {
+    // Reference to the "tokens" collection
+    const tokensRef = db.collection("tokens");
+
+    // Query to find documents where the 'uid' matches the provided uid
+    const snapshot = await tokensRef.where("uid", "==", uid).get();
+
+    // Map the data to include document references
+    const data = snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      ref: doc.ref,
+    }));
+
+    // Loop through and delete each document
+    for (const doc of data) {
       try {
-        await deleteDoc(data[i].ref);
-      } catch (e) {
-        console.log(e);
+        await doc.ref.delete();
+        console.log(`Deleted token for uid: ${uid}`);
+      } catch (deleteError) {
+        console.error(`Error deleting document: ${deleteError}`);
       }
     }
-    res.status(200).send();
 
-    // res.status(200).json({ data, uid: req.body.uid });
-    // if (data.docs.some((doc) => doc.exists())) {
-    //   await deleteDoc(data.docs[0].ref);
-    //   console.log(`Token for ${req.body.uid} removed`);
-    // } else {
-    //   console.log(`No documents found for ${req.body.uid}`);
-    // }
-    // res.status(200).send();
+    res.status(200).send("Documents deleted successfully");
   } catch (e) {
     console.error("Error removing document: ", e);
     res.status(500).send(e);
@@ -321,20 +325,28 @@ app.delete("/token/delete", async (req, res) => {
 });
 
 app.post("/token/store", async (req, res) => {
-  const ref = collection(db, "tokens");
+  const uid = req.body.uid;
+  const token = req.body.token;
+
   try {
-    const q = query(ref, where("uid", "==", req.body.uid));
-    const data = await getDocs(q);
-    if (data.docs.some((doc) => doc.exists())) {
+    // Reference to the "tokens" collection
+    const tokensRef = db.collection("tokens");
+
+    // Query to check if a document with the same 'uid' already exists
+    const snapshot = await tokensRef.where("uid", "==", uid).get();
+
+    // Check if the token already exists
+    if (!snapshot.empty) {
       console.log("--------------------------------------");
       console.log("token already exists");
       res.send({
         message: "token already exists",
       });
     } else {
-      await addDoc(ref, {
-        token: req.body.token,
-        uid: req.body.uid,
+      // Add a new token document if it doesn't exist
+      await tokensRef.add({
+        token: token,
+        uid: uid,
       });
       res.status(201).send({
         message: "token added",
