@@ -81,7 +81,6 @@ const triggerReminders = async () => {
           } expiring today`,
           uid,
           // mealNames: expiringMeals.map((meal) => meal.data.name).join(", "), // Optional: Add meal names if needed
-          // foodIds: expiringMeals.map((meal) => meal.id), // Optional: Include IDs for tracking
         });
       }
     }
