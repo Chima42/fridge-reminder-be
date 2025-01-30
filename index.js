@@ -256,7 +256,7 @@ const getMealsExpiringToday = (meals) => {
 
 const getUserMeals = async (uid) => {
   const querySnapshot = await db
-    .collection("foods")
+    .collection(process.env.FOODS_DB_NAME)
     .where("uid", "==", uid)
     .get();
   return querySnapshot.docs.map((doc) => ({
@@ -271,7 +271,7 @@ const formatDate = (date) => {
 };
 
 const getTokensFromDb = async () => {
-  const tokens = await db.collection("tokens").get();
+  const tokens = await db.collection(process.env.TOKENS_DB_NAME).get();
   return tokens.docs.map((x) => x.data());
 };
 
@@ -294,7 +294,7 @@ app.delete("/token/delete", async (req, res) => {
 
   try {
     // Reference to the "tokens" collection
-    const tokensRef = db.collection("tokens");
+    const tokensRef = db.collection(process.env.TOKENS_DB_NAME);
 
     // Query to find documents where the 'uid' matches the provided uid
     const snapshot = await tokensRef.where("uid", "==", uid).get();
@@ -328,7 +328,7 @@ app.post("/token/store", async (req, res) => {
 
   try {
     // Reference to the "tokens" collection
-    const tokensRef = db.collection("tokens");
+    const tokensRef = db.collection(process.env.TOKENS_DB_NAME);
 
     // Query to check if a document with the same 'uid' already exists
     const snapshot = await tokensRef.where("uid", "==", uid).get();
