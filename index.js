@@ -25,8 +25,6 @@ async function getSecret() {
   });
 }
 
-const isDev = process.env.NODE_ENV === "development";
-
 let db;
 
 getSecret()
@@ -299,7 +297,7 @@ const getMealsExpiringToday = (meals) => {
 
 const getUserMeals = async (uid) => {
   const querySnapshot = await db
-    .collection(isDev ? "foods" : "foods-prod")
+    .collection(process.env.FOODS_DB_NAME)
     .where("uid", "==", uid)
     .get();
   return querySnapshot.docs.map((doc) => ({
@@ -314,7 +312,7 @@ const formatDate = (date) => {
 };
 
 const getTokensFromDb = async () => {
-  const tokens = await db.collection(isDev ? "tokens" : "tokens-prod").get();
+  const tokens = await db.collection(process.env.TOKENS_DB_NAME).get();
   return tokens.docs.map((x) => x.data());
 };
 
@@ -337,7 +335,7 @@ app.delete("/token/delete", async (req, res) => {
 
   try {
     // Reference to the "tokens" collection
-    const tokensRef = db.collection(isDev ? "tokens" : "tokens-prod");
+    const tokensRef = db.collection(process.env.TOKENS_DB_NAME);
 
     // Query to find documents where the 'uid' matches the provided uid
     const snapshot = await tokensRef.where("uid", "==", uid).get();
@@ -371,7 +369,7 @@ app.post("/token/store", async (req, res) => {
 
   try {
     // Reference to the "tokens" collection
-    const tokensRef = db.collection(isDev ? "tokens" : "tokens-prod");
+    const tokensRef = db.collection(process.env.TOKENS_DB_NAME);
 
     // Query to check if a document with the same 'uid' already exists
     const snapshot = await tokensRef.where("uid", "==", uid).get();
