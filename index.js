@@ -58,27 +58,12 @@ const triggerReminders = async () => {
       console.log("--------------------------------------");
       console.log(`${tokens[i].uid}: ${expiringMeals.length} expiring today`);
 
-      // if (expiringMeals.length > 0) {
-      //   expiringMeals.forEach((ep, mealIndex) => {
-      //     messages.push({
-      //       to: tokens[i].token,
-      //       sound: "default",
-      //       body: `${expiringMeals.length > 1 ? `${expiringMeals.length} foods` : expiringMeals[mealIndex].data.name} expiring today`,
-      //       uid,
-      //       name: expiringMeals[mealIndex].data.name,
-      //       foodId: expiringMeals[mealIndex].id
-      //     });
-      //   })
-      // }
-
       if (expiringMeals.length > 0) {
         // Create one consolidated message for the user
         messages.push({
           to: tokens[i].token,
           sound: "default",
-          body: `${expiringMeals.length} food${
-            expiringMeals.length > 1 ? "s" : ""
-          } expiring today`,
+          body: getNotificationMessage(expiringMeals),
           uid,
           // mealNames: expiringMeals.map((meal) => meal.data.name).join(", "), // Optional: Add meal names if needed
           // foodIds: expiringMeals.map((meal) => meal.id), // Optional: Include IDs for tracking
@@ -157,9 +142,7 @@ const sendAOneOffReminder = async (uid) => {
       const expiringMeals = getMealsExpiringToday(userSpecificMeals);
 
       console.log("--------------------------------------");
-      console.log(
-        `${tokens[i].uid}: ${expiringMeals.length} notifications for today`
-      );
+      console.log(`${tokens[i].uid}: ${expiringMeals.length} meals for today`);
 
       // if (expiringMeals.length > 0) {
       //   expiringMeals.forEach((ep, mealIndex) => {
@@ -247,13 +230,12 @@ const sendAOneOffReminder = async (uid) => {
 
 const getNotificationMessage = (meals) => {
   const counts = { prep: 0, defrost: 0, cook: 0, expiry: 0 };
-
   // Count occurrences of each reminder type
-  meals.forEach(({ reminderType, state }) => {
-    if (counts[reminderType] !== undefined) {
-      counts[reminderType]++;
+  meals.forEach(({ data }) => {
+    if (counts[data.reminderType] !== undefined) {
+      counts[data.reminderType]++;
     }
-    if (state === 1) {
+    if (data.state === 1) {
       counts["defrost"]++;
     }
   });
@@ -265,11 +247,11 @@ const getNotificationMessage = (meals) => {
   if (counts.cook) parts.push(`${counts.cook} to cook`);
   if (counts.expiry) parts.push(`${counts.expiry} expiring`);
 
-  if (parts.length === 0) return null; // No reminders
+  if (parts.length === 0) return meals.length + " food expiring today"; // No reminders
 
   // Determine singular/plural for "meal(s)"
   const firstCount = parseInt(parts[0].split(" ")[0], 10);
-  const mealWord = firstCount === 1 ? "meal" : "meals";
+  const mealWord = firstCount === 1 ? "food" : "foods";
 
   // Add "meal" or "meals" to the first item
   parts[0] = `${firstCount} ${mealWord} ${parts[0].slice(
