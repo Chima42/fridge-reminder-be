@@ -159,7 +159,9 @@ const sendAOneOffReminder = async (uid) => {
       const expiringMeals = getMealsExpiringToday(userSpecificMeals);
 
       console.log("--------------------------------------");
-      console.log(`${tokens[i].uid}: ${expiringMeals.length} expiring today`);
+      console.log(
+        `${tokens[i].uid}: ${expiringMeals.length} notifications for today`
+      );
 
       // if (expiringMeals.length > 0) {
       //   expiringMeals.forEach((ep, mealIndex) => {
@@ -179,9 +181,7 @@ const sendAOneOffReminder = async (uid) => {
         messages.push({
           to: tokens[i].token,
           sound: "default",
-          body: `${expiringMeals.length} food${
-            expiringMeals.length > 1 ? "s" : ""
-          } expiring today`,
+          body: getNotificationMessage(expiringMeals),
           uid,
           // mealNames: expiringMeals.map((meal) => meal.data.name).join(", "), // Optional: Add meal names if needed
           // foodIds: expiringMeals.map((meal) => meal.id), // Optional: Include IDs for tracking
@@ -245,6 +245,47 @@ const sendAOneOffReminder = async (uid) => {
       console.error(error);
     }
   }
+};
+
+const getNotificationMessage = (meals) => {
+  const counts = { prep: 0, defrost: 0, cook: 0, expiry: 0 };
+
+  // Count occurrences of each reminder type
+  meals.forEach(({ reminderType, state }) => {
+    if (counts[reminderType] !== undefined) {
+      counts[reminderType]++;
+    }
+    if (state === 1) {
+      counts["defrost"]++;
+    }
+  });
+
+  const parts = [];
+
+  if (counts.prep) parts.push(`${counts.prep} to prep`);
+  if (counts.defrost) parts.push(`${counts.defrost} to defrost`);
+  if (counts.cook) parts.push(`${counts.cook} to cook`);
+  if (counts.expiry) parts.push(`${counts.expiry} expiring`);
+
+  if (parts.length === 0) return null; // No reminders
+
+  // Determine singular/plural for "meal(s)"
+  const firstCount = parseInt(parts[0].split(" ")[0], 10);
+  const mealWord = firstCount === 1 ? "meal" : "meals";
+
+  // Add "meal" or "meals" to the first item
+  parts[0] = `${firstCount} ${mealWord} ${parts[0].slice(
+    parts[0].indexOf("to") !== -1
+      ? parts[0].indexOf("to")
+      : parts[0].indexOf("expiring")
+  )}`;
+
+  // Format the final message, ensuring "today" appears only once
+  const message = `You have ${parts.slice(0, -1).join(", ")}${
+    parts.length > 1 ? " and " : ""
+  }${parts[parts.length - 1]} today.`;
+
+  return message;
 };
 
 // filtering out eaten and expired meals
