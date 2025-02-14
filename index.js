@@ -300,7 +300,6 @@ const formatDate = (date) => {
 
 const getTokensFromDb = async () => {
   const tokens = await db.collection(process.env.TOKENS_DB_NAME).get();
-  console.log("fectch tokens", tokens);
   return tokens.docs.map((x) => x.data());
 };
 
