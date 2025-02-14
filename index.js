@@ -12,8 +12,6 @@ const { SecretManagerServiceClient } = require("@google-cloud/secret-manager");
 const cron = require("node-cron");
 const admin = require("firebase-admin");
 const client = new SecretManagerServiceClient();
-// process.env.GOOGLE_APPLICATION_CREDENTIALS =
-//   "/Users/chimanwosu/Desktop/FridgeReminders Backend/serviceAccountKey.json";
 async function getSecret() {
   const [version] = await client.accessSecretVersion({
     name: "projects/fridge-reminders-auth/secrets/fridgeRemindersServiceAccountKey/versions/latest",
@@ -27,14 +25,6 @@ async function getSecret() {
 
 let db;
 
-getSecret()
-  .then(() => {
-    db = admin.firestore();
-  })
-  .catch((e) => {
-    console.log("Error starting server", e);
-  });
-
 const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
 
 cron.schedule("0 8 * * *", () => {
@@ -44,6 +34,8 @@ cron.schedule("0 8 * * *", () => {
 });
 
 const triggerReminders = async () => {
+  console.log("Loading credentials...");
+  db = await loadSecret();
   console.log("fetching registered device tokens...");
   const tickets = [];
   const expo = new Expo();
@@ -130,6 +122,8 @@ const triggerReminders = async () => {
 };
 
 const sendAOneOffReminder = async (uid) => {
+  console.log("Loading credentials...");
+  db = await loadSecret();
   console.log("fetching registered device tokens...");
   const tickets = [];
   const expo = new Expo();
@@ -266,6 +260,17 @@ const getNotificationMessage = (meals) => {
   }${parts[parts.length - 1]} today.`;
 
   return message;
+};
+
+const loadSecret = async () => {
+  try {
+    await getSecret();
+    console.log("Credentials loading succeeded");
+    return admin.firestore();
+  } catch (e) {
+    console.log("Credentials loading failed", e);
+    return undefined;
+  }
 };
 
 // filtering out eaten and expired meals
