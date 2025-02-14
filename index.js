@@ -3,9 +3,6 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 app.use(express.json());
-const mindee = require("mindee");
-const fs = require("fs");
-const mealsDb = require("./mealsDb");
 require("dotenv").config();
 const { Expo } = require("expo-server-sdk");
 const { SecretManagerServiceClient } = require("@google-cloud/secret-manager");
@@ -24,8 +21,6 @@ async function getSecret() {
 }
 
 let db;
-
-const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
 
 cron.schedule("0 8 * * *", () => {
   triggerReminders()
@@ -384,36 +379,36 @@ app.post("/token/store", async (req, res) => {
   }
 });
 
-app.post("/receipt/process", async (req, res) => {
-  console.log("process receipt request received");
-  try {
-    const apiResponse = await mindeeClient
-      .docFromUrl(req.body.url)
-      .parse(mindee.ReceiptV5);
+// app.post("/receipt/process", async (req, res) => {
+//   console.log("process receipt request received");
+//   try {
+//     const apiResponse = await mindeeClient
+//       .docFromUrl(req.body.url)
+//       .parse(mindee.ReceiptV5);
 
-    if (apiResponse.document === undefined) {
-      res.send({ message: "document data undefined" });
-      return;
-    }
-    console.log("receipt processed, returning meals");
+//     if (apiResponse.document === undefined) {
+//       res.send({ message: "document data undefined" });
+//       return;
+//     }
+//     console.log("receipt processed, returning meals");
 
-    const meals = apiResponse.document.lineItems.map((x) => x.description);
+//     const meals = apiResponse.document.lineItems.map((x) => x.description);
 
-    const formattedMeals = meals.map((food) => {
-      const found = mealsDb.find((x) =>
-        food.toLowerCase().includes(x.toLowerCase())
-      );
-      return found ? found : food;
-    });
+//     const formattedMeals = meals.map((food) => {
+//       const found = mealsDb.find((x) =>
+//         food.toLowerCase().includes(x.toLowerCase())
+//       );
+//       return found ? found : food;
+//     });
 
-    res.json({
-      meals: formattedMeals,
-    });
-  } catch (e) {
-    console.log("error", e);
-    res.send(e);
-  }
-});
+//     res.json({
+//       meals: formattedMeals,
+//     });
+//   } catch (e) {
+//     console.log("error", e);
+//     res.send(e);
+//   }
+// });
 
 app.listen(process.env.PORT || 8080, () => {
   console.log(`Listen on the port ${process.env.PORT || 8080}...`);
