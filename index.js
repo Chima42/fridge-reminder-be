@@ -390,7 +390,6 @@ app.post("/token/store", async (req, res) => {
 //       res.send({ message: "document data undefined" });
 //       return;
 //     }
-//     console.log("receipt processed, returning meals");
 
 //     const meals = apiResponse.document.lineItems.map((x) => x.description);
 
