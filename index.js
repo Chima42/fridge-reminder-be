@@ -3,17 +3,14 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 app.use(express.json());
-const mindee = require("mindee");
 const fs = require("fs");
-const mealsDb = require("./mealsDb");
 require("dotenv").config();
 const { Expo } = require("expo-server-sdk");
 const { SecretManagerServiceClient } = require("@google-cloud/secret-manager");
 const cron = require("node-cron");
 const admin = require("firebase-admin");
 const client = new SecretManagerServiceClient();
-// process.env.GOOGLE_APPLICATION_CREDENTIALS =
-//   "/Users/chimanwosu/Desktop/FridgeReminders Backend/serviceAccountKey.json";
+
 async function getSecret() {
   const [version] = await client.accessSecretVersion({
     name: "projects/fridge-reminders-auth/secrets/fridgeRemindersServiceAccountKey/versions/latest",
@@ -34,8 +31,6 @@ getSecret()
   .catch((e) => {
     console.log("Error starting server", e);
   });
-
-const mindeeClient = new mindee.Client({ apiKey: process.env.MINDEE_API_KEY });
 
 cron.schedule("0 8 * * *", () => {
   triggerReminders()
@@ -375,37 +370,6 @@ app.post("/token/store", async (req, res) => {
   } catch (e) {
     console.error("Error adding document: ", e);
     res.status(500).send(e);
-  }
-});
-
-app.post("/receipt/process", async (req, res) => {
-  console.log("process receipt request received");
-  try {
-    const apiResponse = await mindeeClient
-      .docFromUrl(req.body.url)
-      .parse(mindee.ReceiptV5);
-
-    if (apiResponse.document === undefined) {
-      res.send({ message: "document data undefined" });
-      return;
-    }
-    console.log("receipt processed, returning meals");
-
-    const meals = apiResponse.document.lineItems.map((x) => x.description);
-
-    const formattedMeals = meals.map((food) => {
-      const found = mealsDb.find((x) =>
-        food.toLowerCase().includes(x.toLowerCase())
-      );
-      return found ? found : food;
-    });
-
-    res.json({
-      meals: formattedMeals,
-    });
-  } catch (e) {
-    console.log("error", e);
-    res.send(e);
   }
 });
 
